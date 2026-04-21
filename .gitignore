@@ -410,6 +410,13 @@ FodyWeavers.xsd
 # CMake preset output (VS solution generated here)
 vs/build-vs2022-x64/
 
+# CMake out-of-source build directories and caches
+/build/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+compile_commands.json
+
 # Built Visual Studio Code Extensions
 *.vsix
 

@@ -54,6 +54,7 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
+          rm -rf "${GITHUB_WORKSPACE}/build"
           cmake -S "${GITHUB_WORKSPACE}" -B "${GITHUB_WORKSPACE}/build" \
             -G Ninja \
             -DCMAKE_BUILD_TYPE=Release
@@ -97,6 +98,7 @@ jobs:
         shell: msys2 {0}
         run: |
           set -euxo pipefail
+          rm -rf "${GITHUB_WORKSPACE}/build"
           cmake -S "${GITHUB_WORKSPACE}" -B "${GITHUB_WORKSPACE}/build" \
             -G Ninja \
             -DCMAKE_BUILD_TYPE=Release
