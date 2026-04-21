@@ -182,14 +182,20 @@ jobs:
           done
 
           # Compression / hashing / string conversion libs Qt may pull indirectly.
-          for dll in zlib1.dll libzstd.dll libb2-1.dll libdouble-conversion.dll; do
+          for dll in zlib1.dll libzstd.dll libbz2-1.dll libb2-1.dll libdouble-conversion.dll; do
             if [ -f "${MINGW_BIN}/${dll}" ] && [ ! -f "${ARTIFACT_DIR}/${dll}" ]; then
               cp "${MINGW_BIN}/${dll}" "${ARTIFACT_DIR}/" 2>/dev/null || true
             fi
           done
 
-          # Qt Gui: FreeType/HarfBuzz (fonts), libpng, Qt Markdown (md4c) — often loaded via plugins.
-          for dll in libfreetype-6.dll libharfbuzz-0.dll libmd4c.dll libpng16-16.dll; do
+          # Qt Gui: FreeType/HarfBuzz/graphite2 (fonts), GLib (transitive), libpng, Qt Markdown (md4c).
+          for dll in \
+              libfreetype-6.dll \
+              libharfbuzz-0.dll \
+              libgraphite2.dll \
+              libglib-2.0-0.dll \
+              libmd4c.dll \
+              libpng16-16.dll; do
             if [ -f "${MINGW_BIN}/${dll}" ] && [ ! -f "${ARTIFACT_DIR}/${dll}" ]; then
               cp "${MINGW_BIN}/${dll}" "${ARTIFACT_DIR}/" 2>/dev/null || true
             fi
