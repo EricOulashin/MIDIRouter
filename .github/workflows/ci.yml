@@ -181,6 +181,13 @@ jobs:
             fi
           done
 
+          # Compression / hashing / string conversion libs Qt may pull indirectly.
+          for dll in zlib1.dll libzstd.dll libb2-1.dll libdouble-conversion.dll; do
+            if [ -f "${MINGW_BIN}/${dll}" ] && [ ! -f "${ARTIFACT_DIR}/${dll}" ]; then
+              cp "${MINGW_BIN}/${dll}" "${ARTIFACT_DIR}/" 2>/dev/null || true
+            fi
+          done
+
           echo "Packaged files:"
           (cd "${ARTIFACT_DIR}" && ls -la)
 
