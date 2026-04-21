@@ -188,6 +188,13 @@ jobs:
             fi
           done
 
+          # Qt Gui: FreeType/HarfBuzz (fonts), libpng, Qt Markdown (md4c) — often loaded via plugins.
+          for dll in libfreetype-6.dll libharfbuzz-0.dll libmd4c.dll libpng16-16.dll; do
+            if [ -f "${MINGW_BIN}/${dll}" ] && [ ! -f "${ARTIFACT_DIR}/${dll}" ]; then
+              cp "${MINGW_BIN}/${dll}" "${ARTIFACT_DIR}/" 2>/dev/null || true
+            fi
+          done
+
           # ICU + PCRE2 — Qt Core may load these dynamically (not always visible to ntldd).
           # Copy whatever versions MSYS2 ships (libicuin*, libicuuc*, libicudt*, libpcre2-16-*).
           shopt -s nullglob
