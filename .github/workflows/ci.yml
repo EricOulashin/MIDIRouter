@@ -85,7 +85,9 @@ jobs:
             mingw-w64-x86_64-cmake
             mingw-w64-x86_64-ninja
             mingw-w64-x86_64-qt6-base
+            mingw-w64-x86_64-qt6-tools
             mingw-w64-x86_64-pkg-config
+            mingw-w64-x86_64-ntldd-git
 
       - name: Install RtMidi (MSYS2)
         shell: msys2 {0}
@@ -104,10 +106,80 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release
           cmake --build "${GITHUB_WORKSPACE}/build" --parallel
 
+      - name: Prepare Windows portable artifact (bundle Qt + DLL deps)
+        shell: msys2 {0}
+        run: |
+          set -euxo pipefail
+          ROOT="${GITHUB_WORKSPACE}"
+          ARTIFACT_DIR="${ROOT}/midirouter_Windows"
+          MINGW_BIN="/mingw64/bin"
+          rm -rf "${ARTIFACT_DIR}"
+          mkdir -p "${ARTIFACT_DIR}"
+
+          cp "${ROOT}/build/midirouter.exe" "${ARTIFACT_DIR}/"
+
+          # Qt deployment (QtCore6.dll, platforms/, styles/, etc.)
+          # --compiler-runtime pulls in libstdc++/libgcc_s/libwinpthread, etc.
+          if command -v windeployqt6 &>/dev/null; then
+            windeployqt6 --compiler-runtime --no-translations --no-opengl-sw \
+              "${ARTIFACT_DIR}/midirouter.exe"
+          elif command -v windeployqt &>/dev/null; then
+            windeployqt --compiler-runtime --no-translations --no-opengl-sw \
+              "${ARTIFACT_DIR}/midirouter.exe"
+          else
+            echo "::warning::windeployqt not found; Qt DLLs may be missing"
+          fi
+
+          # Discover and copy any additional transitive DLL dependencies from MSYS2.
+          # ntldd is MinGW's equivalent of ldd; -R walks the full dependency tree.
+          collect_deps_pass() {
+            local added=0
+            local target
+            shopt -s nullglob
+            for target in "${ARTIFACT_DIR}"/*.exe "${ARTIFACT_DIR}"/*.dll; do
+              ntldd -R "${target}" 2>/dev/null \
+                | awk '/=>/ {print $3}' \
+                | grep -i "/mingw64/" \
+                | sort -u \
+                | while read -r dep; do
+                    [ -f "${dep}" ] || continue
+                    name=$(basename "${dep}")
+                    if [ ! -f "${ARTIFACT_DIR}/${name}" ]; then
+                      cp "${dep}" "${ARTIFACT_DIR}/"
+                      added=1
+                    fi
+                  done
+            done
+            shopt -u nullglob
+            return ${added}
+          }
+
+          if command -v ntldd &>/dev/null; then
+            for pass in 1 2 3 4 5; do
+              before=$(ls -1 "${ARTIFACT_DIR}"/*.dll 2>/dev/null | wc -l)
+              collect_deps_pass || true
+              after=$(ls -1 "${ARTIFACT_DIR}"/*.dll 2>/dev/null | wc -l)
+              [ "${before}" = "${after}" ] && break
+            done
+          else
+            echo "::warning::ntldd not available; may miss non-Qt DLL deps"
+          fi
+
+          # Belt-and-braces: ensure RtMidi DLL is present if dynamically linked.
+          shopt -s nullglob
+          for dll in "${MINGW_BIN}"/librtmidi*.dll; do
+            name=$(basename "${dll}")
+            [ -f "${ARTIFACT_DIR}/${name}" ] || cp "${dll}" "${ARTIFACT_DIR}/" 2>/dev/null || true
+          done
+          shopt -u nullglob
+
+          echo "Packaged files:"
+          (cd "${ARTIFACT_DIR}" && ls -la)
+
       - name: Upload artifact
         uses: actions/upload-artifact@v5
         with:
           name: midirouter_Windows
-          path: ${{ github.workspace }}/build/midirouter.exe
-          if-no-files-found: warn
+          path: midirouter_Windows/
+          if-no-files-found: error
           retention-days: 14
