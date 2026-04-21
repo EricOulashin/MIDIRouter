@@ -407,6 +407,9 @@ FodyWeavers.xsd
 # Local History for Visual Studio Code
 .history/
 
+# CMake preset output (VS solution generated here)
+vs/build-vs2022-x64/
+
 # Built Visual Studio Code Extensions
 *.vsix
 

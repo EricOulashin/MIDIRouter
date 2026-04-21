@@ -1,47 +1,59 @@
 # MIDIRouter
-This is an application that routes MIDI data from a MIDI input port to a MIDI output port.  MIDI Router can
-also send MIDI data over a network to another computer.  Routing over a network was the main goal of this
-program and was done as a test to see how feasible it would be to send MIDI messages over a network in real-time.
-It's definitely possible, as this application shows, but I found that the MIDI messages sent across the network
-often don't arrive at the right time, since timing of packets is not guaranteed.  But I thought it was at
-least a fun concept.
 
-The application has 3 modes: Local, Server, and Client.  In Local mode, the application routes MIDI from a
-MIDI input on your computer to a MIDI output on your computer.  To send MIDI over a network, first run the
-application in Server mode on the computer on which you want to output MIDI and click "Host".  Then, run the
-application in client mode, enter the host computer's server & port, and click "Connect".  The application
-should connect, allowing you to send MIDI data to the host computer, which will output the MIDI to its
-selected MIDI Out port.  In Client mode, there is an option to also output MIDI to a local MIDI port.
+This is a desktop application that routes MIDI between ports on one machine (**Local**) or over TCP (**Server** / **Client**).
 
-Acknowledgement and thanks goes to Gary P. Scavone for his RtMidi C++ class, which provides the C++ interface
-to the MIDI hardware.  This code uses an old version of RtMidi; it appears that RtMidi is currently
-<a href='https://github.com/thestk/rtmidi' target='_blank'>on GitHub</a>; there's a comment in the included
-RtMidi.cpp with <a href='http://music.mcgill.ca/~gary/rtmidi/' target='_blank'>this URL</a>, but it looks
-like that no longer exists.
+Network transport uses timestamped packets: the client stamps each message with `std::chrono::steady_clock` nanoseconds; the server schedules MIDI output relative to the first packet in a session and a configurable **jitter buffer**, preserving inter-onset timing despite variable packet delay.
 
-I wrote this in 2008.  I used <a href='https://wxwidgets.org' target='_blank'>wxWidgets</a> for the GUI, thinking I
-would build executables for multiple operating systems, but I only built a Windows version.  Also, since I wrote
-this in 2008, the code doesn't take advatnage of modern C++.  If I were to re-write this again now, one change I
-would make would be to use the threading libraries that are now included in the C++ standard library as of C++11
-(such as <a href='https://cplusplus.com/reference/thread/thread/' target='_blank'>std::thread</a>; currently, this
-source code uses <a href='https://docs.wxwidgets.org/3.2/classwx_thread.html' target='_blank'>wxThread</a>, which
-is provided by wxWidgets and provided cross-platform threading capability; note that even the wxThread
-documentation now recommends using std::thread in C++11 programs).
+The GUI uses **Qt 6**. MIDI I/O uses **RtMidi**. The codebase targets **C++17**.
 
-Also, for networking, this uses classes provided by wxWidgets, such as
-<a href='https://docs.wxwidgets.org/3.3/classwx_socket_server.html' target='_blank'>wxSocketServer</a>,
-<a href='https://docs.wxwidgets.org/3.3/classwx_socket_event.html' target='_blank'>wxSocketEvent</a>, and
-<a href='https://docs.wxwidgets.org/3.2/classwx_socket_client.html' target='_blank'>wxSocketClient</a>. if I
-re-wrote this application now, I would probably choose a different networking library.
+Historical **wxWidgets** sources (2008) are preserved under [`code/legacy_wx`](code/legacy_wx/README.txt) for reference only.
 
 ## Screenshots
 <p align="center">
-	Local mode:
-	<img src="screenshots/MIDIRouter-Local-gigapixel2.png" alt="MIDIRouter Local Mode" width="800">
-	Server mode:
-	<img src="screenshots/MIDIRouter-Server-gigapixel2.png" alt="MIDIRouter Server Mode" width="800">
-	Client mode:
-	<img src="screenshots/MIDIRouter-Client-gigapixel2.png" alt="MIDIRouter Client Mode" width="800">
-	Client mode with local MIDI output:
-	<img src="screenshots/MIDIRouter-ClientLocal-gigapixel2.png" alt="MIDIRouter Client Mode with local MIDI output" width="800">
+	<a href="screenshots/MIDIRouter-Client.png" target='_blank'><img src="screenshots/MIDIRouter-Client.png" alt="Client mode" width="768"></a>
+	<a href="screenshots/MIDIRouter-ClientLocal.png" target='_blank'><img src="screenshots/MIDIRouter-ClientLocal.png" alt="Client mode with local enabled" width="768"></a>
+	<a href="screenshots/MIDIRouter-Local.png" target='_blank'><img src="screenshots/MIDIRouter-Local.png" alt="Local mode" width="768"></a>
+	<a href="screenshots/MIDIRouter-Server.png" target='_blank'><img src="screenshots/MIDIRouter-Server.png" alt="Server mode" width="768"></a>
 </p>
+
+
+## Build requirements
+
+- CMake 3.16+
+- Qt 6 (Core, Gui, Widgets, Network)
+- RtMidi library and headers
+- C++17 compiler
+
+### Linux
+
+```bash
+sudo apt-get install build-essential cmake ninja-build qt6-base-dev librtmidi-dev pkg-config
+make           # or: cmake -S . -B build && cmake --build build --parallel
+```
+
+### macOS (Homebrew example)
+
+```bash
+brew install cmake ninja qt@6 rtmidi pkgconf
+export CMAKE_PREFIX_PATH="$(brew --prefix qt@6);$(brew --prefix)"
+cmake -S . -B build -GNinja -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel
+```
+
+### Windows
+
+See [`vs/README_VS2022.md`](vs/README_VS2022.md): open the root **`CMakeLists.txt`** in Visual Studio with the CMake workload, or generate a Visual Studio solution with CMake (CMake sets `binaryDir` under **`vs/`** when using the `vs2022-x64` preset in [`CMakePresets.json`](CMakePresets.json)).
+
+MSYS2 (MINGW64) packages used in CI: `mingw-w64-x86_64-qt6-base`, `mingw-w64-x86_64-cmake`, `mingw-w64-x86_64-ninja`, `mingw-w64-x86_64-rtmidi`.
+
+## Running
+
+Connect client to server using the configured TCP port (default **2112**).
+
+- **Server**: choose MIDI Out, set port, click **Host**, wait for client.
+- **Client**: choose MIDI In, optional **Local too** + MIDI Out, set host/IP and port, click **Connect**.
+- Adjust **Jitter buffer (ms)** on the server (default **25 ms**) so scheduling stays ahead of worst-case jitter; higher values increase latency but improve stability on busy networks.
+
+## Specifications
+
+[MIDI specifications](https://midi.org/specs) (message formats are unchanged; timing over IP is handled by this app’s buffering and timestamps rather than by the MIDI wire protocol alone.)

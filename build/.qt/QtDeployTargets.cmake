@@ -1,0 +1,2 @@
+set(__QT_DEPLOY_TARGET_midirouter_FILE /home/erico/projects/MIDIRouter/build/midirouter)
+set(__QT_DEPLOY_TARGET_midirouter_TYPE EXECUTABLE)

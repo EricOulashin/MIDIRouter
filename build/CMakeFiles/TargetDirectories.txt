@@ -1,0 +1,5 @@
+/home/erico/projects/MIDIRouter/build/CMakeFiles/midirouter.dir
+/home/erico/projects/MIDIRouter/build/CMakeFiles/edit_cache.dir
+/home/erico/projects/MIDIRouter/build/CMakeFiles/rebuild_cache.dir
+/home/erico/projects/MIDIRouter/build/CMakeFiles/midirouter_autogen_timestamp_deps.dir
+/home/erico/projects/MIDIRouter/build/CMakeFiles/midirouter_autogen.dir
