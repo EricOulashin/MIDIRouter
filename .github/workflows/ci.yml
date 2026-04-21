@@ -173,6 +173,14 @@ jobs:
           done
           shopt -u nullglob
 
+          # Some DLLs may be loaded dynamically at runtime (not visible to ntldd).
+          # Brotli is commonly required by Qt (e.g. for network/content decoding).
+          for dll in libbrotlidec.dll libbrotlicommon.dll libbrotlienc.dll; do
+            if [ -f "${MINGW_BIN}/${dll}" ] && [ ! -f "${ARTIFACT_DIR}/${dll}" ]; then
+              cp "${MINGW_BIN}/${dll}" "${ARTIFACT_DIR}/" 2>/dev/null || true
+            fi
+          done
+
           echo "Packaged files:"
           (cd "${ARTIFACT_DIR}" && ls -la)
 
