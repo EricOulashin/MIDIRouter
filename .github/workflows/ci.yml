@@ -154,6 +154,7 @@ jobs:
             return ${added}
           }
 
+          # Pass 1: resolve linked deps of the exe + windeployqt output before manual extras.
           if command -v ntldd &>/dev/null; then
             for pass in 1 2 3 4 5; do
               before=$(ls -1 "${ARTIFACT_DIR}"/*.dll 2>/dev/null | wc -l)
@@ -188,12 +189,18 @@ jobs:
             fi
           done
 
-          # Qt Gui: FreeType/HarfBuzz/graphite2 (fonts), GLib (transitive), libpng, Qt Markdown (md4c).
+          # Qt Gui: FreeType/HarfBuzz/graphite2 (fonts), full GLib stack, libpng, Qt Markdown (md4c).
+          # GLib pulls gettext (intl/iconv), PCRE2-8, FFI, and GObject/GIO siblings at runtime.
           for dll in \
               libfreetype-6.dll \
               libharfbuzz-0.dll \
               libgraphite2.dll \
               libglib-2.0-0.dll \
+              libgobject-2.0-0.dll \
+              libgio-2.0-0.dll \
+              libgmodule-2.0-0.dll \
+              libintl-8.dll \
+              libiconv-2.dll \
               libmd4c.dll \
               libpng16-16.dll; do
             if [ -f "${MINGW_BIN}/${dll}" ] && [ ! -f "${ARTIFACT_DIR}/${dll}" ]; then
@@ -201,18 +208,37 @@ jobs:
             fi
           done
 
+          shopt -s nullglob
+          for dll in "${MINGW_BIN}"/libffi-*.dll; do
+            name=$(basename "${dll}")
+            [ -f "${dll}" ] || continue
+            [ -f "${ARTIFACT_DIR}/${name}" ] || cp "${dll}" "${ARTIFACT_DIR}/" 2>/dev/null || true
+          done
+          shopt -u nullglob
+
           # ICU + PCRE2 — Qt Core may load these dynamically (not always visible to ntldd).
-          # Copy whatever versions MSYS2 ships (libicuin*, libicuuc*, libicudt*, libpcre2-16-*).
+          # Include PCRE2-8 (GLib/gettext) and PCRE2-16 (Qt); MSYS2 encodes SONAME in the filename.
           shopt -s nullglob
           for dll in \
               "${MINGW_BIN}"/libicuin*.dll \
               "${MINGW_BIN}"/libicuuc*.dll \
               "${MINGW_BIN}"/libicudt*.dll \
+              "${MINGW_BIN}"/libpcre2-8-*.dll \
               "${MINGW_BIN}"/libpcre2-16-*.dll; do
             [ -f "${dll}" ] || continue
             cp -f "${dll}" "${ARTIFACT_DIR}/"
           done
           shopt -u nullglob
+
+          # Pass 2: manual DLLs (e.g. GLib) were added after pass 1; recurse again for their deps.
+          if command -v ntldd &>/dev/null; then
+            for pass in 1 2 3 4 5 6 7 8 9 10; do
+              before=$(ls -1 "${ARTIFACT_DIR}"/*.dll 2>/dev/null | wc -l)
+              collect_deps_pass || true
+              after=$(ls -1 "${ARTIFACT_DIR}"/*.dll 2>/dev/null | wc -l)
+              [ "${before}" = "${after}" ] && break
+            done
+          fi
 
           # windeployqt --compiler-runtime may copy older pthread/gcc than the toolchain that
           # linked midirouter.exe, causing missing pthread_cond_timedwait64 in libwinpthread.
